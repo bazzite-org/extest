@@ -9,5 +9,5 @@ crate-type = ['cdylib']
 [dependencies]
 evdev = "0.12.1"
 once_cell = "1.18.0"
-wayland-client = "0.30.1"
-wayland-protocols = { version = "0.30.1", features = ["client", "unstable"] }
+wayland-client = "0.31.2"
+wayland-protocols = { version = "0.31.2", features = ["client", "unstable"] }
