@@ -23,6 +23,7 @@ jobs:
     - run: cargo build --release --verbose
     - uses: svenstaro/upload-release-action@v2
       with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: target/i686-unknown-linux-gnu/release/libextest.so
         tag: ${{ inputs.tag || github.ref }}
         overwrite: true
