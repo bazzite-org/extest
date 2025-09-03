@@ -5,9 +5,8 @@ mod wayland;
 use wayland::get_axes_range;
 
 use evdev::{
-    uinput::{VirtualDevice, VirtualDeviceBuilder},
-    AbsInfo, AbsoluteAxisType, AttributeSet, EventType, InputEvent, Key, RelativeAxisType,
-    UinputAbsSetup,
+    uinput::VirtualDevice, AbsInfo, AbsoluteAxisCode, AttributeSet, EventType, InputEvent, KeyCode,
+    RelativeAxisCode, UinputAbsSetup,
 };
 use once_cell::sync::Lazy;
 use std::ffi::{c_int, c_uint, c_ulong};
@@ -23,30 +22,28 @@ pub struct Display {
 static DEVICE: Lazy<Mutex<VirtualDevice>> = Lazy::new(|| {
     let size = get_axes_range();
     Mutex::new(
-        VirtualDeviceBuilder::new()
+        VirtualDevice::builder()
             .unwrap()
             .name("extest fake device")
             .with_keys(&AttributeSet::from_iter(
-                [Key::BTN_LEFT, Key::BTN_RIGHT, Key::BTN_MIDDLE]
+                [KeyCode::BTN_LEFT, KeyCode::BTN_RIGHT, KeyCode::BTN_MIDDLE]
                     .into_iter()
                     .chain(KEYS.iter().copied()),
             ))
             .unwrap()
-            .with_relative_axes(&AttributeSet::from_iter(
-                [
-                    RelativeAxisType::REL_X,
-                    RelativeAxisType::REL_Y,
-                    RelativeAxisType::REL_WHEEL,
-                ]
-            ))
+            .with_relative_axes(&AttributeSet::from_iter([
+                RelativeAxisCode::REL_X,
+                RelativeAxisCode::REL_Y,
+                RelativeAxisCode::REL_WHEEL,
+            ]))
             .unwrap()
             .with_absolute_axis(&UinputAbsSetup::new(
-                AbsoluteAxisType::ABS_X,
+                AbsoluteAxisCode::ABS_X,
                 AbsInfo::new(0, 0, size.width, 0, 0, 1),
             ))
             .unwrap()
             .with_absolute_axis(&UinputAbsSetup::new(
-                AbsoluteAxisType::ABS_Y,
+                AbsoluteAxisCode::ABS_Y,
                 AbsInfo::new(0, 0, size.height, 0, 0, 1),
             ))
             .unwrap()
@@ -66,15 +63,19 @@ pub extern "C" fn XTestFakeKeyEvent(
 
     // Seems that X11 keycodes are just 8 + linux keycode - https://wiki.archlinux.org/title/Keyboard_input#Identifying_keycodes
     let key = match keycode {
-        156 => Key::KEY_TAB, // I have no idea where this comes from
-        keycode => Key::new((keycode - 8) as u16),
+        156 => KeyCode::KEY_TAB, // I have no idea where this comes from
+        keycode => KeyCode::new((keycode - 8) as u16),
     };
 
     #[cfg(debug_assertions)]
     println!("emitting keycode {key:?}");
 
-    dev.emit(&[InputEvent::new_now(EventType::KEY, key.0, is_press as i32)])
-        .unwrap();
+    dev.emit(&[InputEvent::new_now(
+        EventType::KEY.0,
+        key.0,
+        is_press as i32,
+    )])
+    .unwrap();
     1
 }
 
@@ -112,9 +113,9 @@ pub extern "C" fn XTestFakeButtonEvent(
     let mut dev = DEVICE.lock().unwrap();
     // values determined via xev
     let key = match button.try_into() {
-        Ok(MouseButtons::LeftClick) => Key::BTN_LEFT,
-        Ok(MouseButtons::MiddleClick) => Key::BTN_MIDDLE,
-        Ok(MouseButtons::RightClick) => Key::BTN_RIGHT,
+        Ok(MouseButtons::LeftClick) => KeyCode::BTN_LEFT,
+        Ok(MouseButtons::MiddleClick) => KeyCode::BTN_MIDDLE,
+        Ok(MouseButtons::RightClick) => KeyCode::BTN_RIGHT,
         Ok(MouseButtons::ScrollUp | MouseButtons::ScrollDown) => {
             // These are sent with is_press true and is_press false like the other buttons,
             // but we only care about is_press because an "unpressed" scroll event doesn't make
@@ -126,8 +127,8 @@ pub extern "C" fn XTestFakeButtonEvent(
                     _ => unreachable!(),
                 };
                 dev.emit(&[InputEvent::new_now(
-                    EventType::RELATIVE,
-                    RelativeAxisType::REL_WHEEL.0,
+                    EventType::RELATIVE.0,
+                    RelativeAxisCode::REL_WHEEL.0,
                     value,
                 )])
                 .unwrap();
@@ -140,8 +141,12 @@ pub extern "C" fn XTestFakeButtonEvent(
         }
     };
 
-    dev.emit(&[InputEvent::new_now(EventType::KEY, key.0, is_press as i32)])
-        .unwrap();
+    dev.emit(&[InputEvent::new_now(
+        EventType::KEY.0,
+        key.0,
+        is_press as i32,
+    )])
+    .unwrap();
     1
 }
 
@@ -154,8 +159,8 @@ pub extern "C" fn XTestFakeRelativeMotionEvent(
 ) -> c_int {
     let mut dev = DEVICE.lock().unwrap();
     let events = [
-        InputEvent::new_now(EventType::RELATIVE, RelativeAxisType::REL_X.0, x),
-        InputEvent::new_now(EventType::RELATIVE, RelativeAxisType::REL_Y.0, y),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, x),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, y),
     ];
     dev.emit(&events).unwrap();
     1
@@ -171,8 +176,8 @@ pub extern "C" fn XTestFakeMotionEvent(
 ) -> c_int {
     let mut dev = DEVICE.lock().unwrap();
     let events = [
-        InputEvent::new_now(EventType::ABSOLUTE, AbsoluteAxisType::ABS_X.0, x),
-        InputEvent::new_now(EventType::ABSOLUTE, AbsoluteAxisType::ABS_Y.0, y),
+        InputEvent::new_now(EventType::ABSOLUTE.0, AbsoluteAxisCode::ABS_X.0, x),
+        InputEvent::new_now(EventType::ABSOLUTE.0, AbsoluteAxisCode::ABS_Y.0, y),
     ];
     dev.emit(&events).unwrap();
     1
