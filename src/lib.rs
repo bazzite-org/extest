@@ -26,9 +26,15 @@ static DEVICE: Lazy<Mutex<VirtualDevice>> = Lazy::new(|| {
             .unwrap()
             .name("extest fake device")
             .with_keys(&AttributeSet::from_iter(
-                [KeyCode::BTN_LEFT, KeyCode::BTN_RIGHT, KeyCode::BTN_MIDDLE]
-                    .into_iter()
-                    .chain(KEYS.iter().copied()),
+                [
+                    KeyCode::BTN_LEFT,
+                    KeyCode::BTN_RIGHT,
+                    KeyCode::BTN_MIDDLE,
+                    KeyCode::BTN_EXTRA,
+                    KeyCode::BTN_SIDE,
+                ]
+                .into_iter()
+                .chain(KEYS.iter().copied()),
             ))
             .unwrap()
             .with_relative_axes(&AttributeSet::from_iter([
@@ -86,6 +92,8 @@ enum MouseButtons {
     RightClick = 3,
     ScrollUp = 4,
     ScrollDown = 5,
+    Side = 8,
+    Extra = 9,
 }
 
 impl TryFrom<u32> for MouseButtons {
@@ -98,6 +106,8 @@ impl TryFrom<u32> for MouseButtons {
             3 => Ok(RightClick),
             4 => Ok(ScrollUp),
             5 => Ok(ScrollDown),
+            8 => Ok(Side),
+            9 => Ok(Extra),
             other => Err(other),
         }
     }
@@ -116,6 +126,8 @@ pub extern "C" fn XTestFakeButtonEvent(
         Ok(MouseButtons::LeftClick) => KeyCode::BTN_LEFT,
         Ok(MouseButtons::MiddleClick) => KeyCode::BTN_MIDDLE,
         Ok(MouseButtons::RightClick) => KeyCode::BTN_RIGHT,
+        Ok(MouseButtons::Side) => KeyCode::BTN_SIDE,
+        Ok(MouseButtons::Extra) => KeyCode::BTN_EXTRA,
         Ok(MouseButtons::ScrollUp | MouseButtons::ScrollDown) => {
             // These are sent with is_press true and is_press false like the other buttons,
             // but we only care about is_press because an "unpressed" scroll event doesn't make
@@ -141,6 +153,8 @@ pub extern "C" fn XTestFakeButtonEvent(
         }
     };
 
+    #[cfg(debug_assertions)]
+    println!("emitting mouse button {key:?}");
     dev.emit(&[InputEvent::new_now(
         EventType::KEY.0,
         key.0,
